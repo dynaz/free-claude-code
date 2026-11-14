@@ -54,6 +54,11 @@ Free-tier availability and limits are controlled by each provider and may change
   <p><em>A native Codex session in FCC's browser UI.</em></p>
 </div>
 
+## TermiNow / Android Termux
+
+Experimental native aarch64 installation: [TermiNow / Termux guide](docs/termux.md).
+Requires an app-compatible Python 3.14 runtime; physical-device validation is pending.
+
 ## Quick Start
 
 <a id="install"></a>

@@ -2,6 +2,7 @@
 
 import errno
 import json
+import os
 import socket
 import threading
 import time
@@ -333,6 +334,8 @@ class ServerSupervisor:
             asgi_app,
             host=settings.host,
             port=settings.port,
+            loop="asyncio" if os.environ.get("FCC_TERMUX") == "1" else "auto",
+            http="h11" if os.environ.get("FCC_TERMUX") == "1" else "auto",
             log_level="debug",
             log_config=uvicorn_log_config(console=self._console_logging),
             timeout_graceful_shutdown=SERVER_GRACEFUL_SHUTDOWN_SECONDS,
