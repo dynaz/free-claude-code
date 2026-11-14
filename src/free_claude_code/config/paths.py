@@ -1,5 +1,6 @@
 """Shared filesystem paths for Free Claude Code configuration."""
 
+import os
 from pathlib import Path
 
 FCC_CONFIG_DIRNAME = ".fcc"
@@ -28,6 +29,12 @@ CODE_LOCK_FILENAME = "code.lock"
 def config_dir_path() -> Path:
     """Return the default user config directory."""
 
+    override = os.environ.get("FCC_CONFIG_DIR")
+    if override:
+        path = Path(override).expanduser()
+        if not path.is_absolute():
+            raise ValueError("FCC_CONFIG_DIR must be an absolute path")
+        return path
     return Path.home() / FCC_CONFIG_DIRNAME
 
 
