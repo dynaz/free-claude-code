@@ -109,3 +109,29 @@ background/resume on Android aarch64. This repository does not contain TermiNow'
 Android UI or bootstrap source, so those integrations are not implemented here.
 
 The upstream AGPL-3.0 license and notices are retained in the staged wheel.
+
+## Recover from a Cargo / maturin certificate error
+
+If the build reports `unable to get local issuer certificate` while fetching
+crates.io, repair the native CA bundle first. The installer now exports the
+app-prefix bundle consistently to Cargo, pip/Python, Requests, curl and Git;
+Cargo build subprocesses inherit it. TLS verification stays enabled.
+
+```sh
+pkg install ca-certificates curl
+pkg reinstall ca-certificates
+export FCC_CA_BUNDLE="$PREFIX/etc/tls/cert.pem"
+# From an updated checkout containing the CA/resume fix:
+sh scripts/install-termux.sh --resume
+```
+
+`--resume` reuses a compatible existing Python 3.14 virtualenv and retries pip
+installation; it never removes the environment or credentials. An incompatible
+or broken interpreter is rejected. The default invocation still refuses to
+replace an existing environment. A TLS preflight against the crates.io index
+runs before any environment changes. A failing preflight can also mean a
+network/proxy trust problem; use an appropriately trusted bundle via
+`FCC_CA_BUNDLE`, rather than disabling certificate checks.
+
+Fixing the CA error addresses the failure shown in that log. Further Android
+native compilation failures may still require separate changes.
