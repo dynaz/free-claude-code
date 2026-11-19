@@ -22,6 +22,16 @@ def android(tmp_path):
     ca = prefix / "etc/tls/cert.pem"
     ca.parent.mkdir(parents=True)
     ca.write_text("trusted test bundle\n")
+    for name in (
+        "include/openssl/ssl.h",
+        "include/openssl/opensslv.h",
+        "lib/libssl.so",
+        "lib/libcrypto.so",
+    ):
+        native_file = prefix / name
+        native_file.parent.mkdir(parents=True, exist_ok=True)
+        native_file.write_text("test native build input\n")
+
     home = tmp_path / "home"
     home.mkdir()
     log = tmp_path / "actions.log"
@@ -36,6 +46,9 @@ def android(tmp_path):
         SSL_CERT_FILE="stale-root",
         CARGO_HTTP_CAINFO="stale-root",
     )
+    env["OPENSSL_DIR"] = "stale-other-app-prefix"
+    env["AARCH64_LINUX_ANDROID_OPENSSL_LIB_DIR"] = "stale-other-app-lib"
+    env["PKG_CONFIG_PATH"] = "/keep/custom/pkgconfig"
     env.pop("FCC_CA_BUNDLE", None)
     env.pop("FCC_TERMUX_VENV", None)
     executable(tools / "uname", "echo aarch64\n")
@@ -66,6 +79,7 @@ def existing_environment(home):
     executable(
         venv / "bin/python",
         """if [ "$1" = -c ]; then exit "${INVALID_VENV:-0}"; fi
+printf 'native:%s|%s|%s|%s|%s|%s\\n' "$OPENSSL_DIR" "$OPENSSL_LIB_DIR" "$OPENSSL_INCLUDE_DIR" "$OPENSSL_NO_VENDOR" "$AARCH64_LINUX_ANDROID_OPENSSL_LIB_DIR" "$PKG_CONFIG_PATH" >> "$ACTION_LOG"
 printf 'python:%s|%s|%s|%s|%s|%s\\n' "$*" "$CARGO_HTTP_CAINFO" "$SSL_CERT_FILE" "$PIP_CERT" "$CARGO_HTTP_SSL_VERIFY" "$REQUESTS_CA_BUNDLE" >> "$ACTION_LOG"
 """,
     )
@@ -87,6 +101,11 @@ def test_resume_propagates_ca_into_nested_builds_without_deleting_data(android):
     assert builds
     assert all(line.endswith(f"|{ca}|{ca}|{ca}|true|{ca}") for line in builds)
     assert "doctor:doctor" in lines
+    prefix = Path(env["PREFIX"])
+    native = [line for line in lines if line.startswith("native:")]
+    assert native
+    expected = f"native:{prefix}|{prefix}/lib|{prefix}/include|1|{prefix}/lib|{prefix}/lib/pkgconfig:{prefix}/share/pkgconfig:/keep/custom/pkgconfig"
+    assert all(line == expected for line in native)
 
 
 def test_default_still_refuses_existing_environment(android):
@@ -138,3 +157,24 @@ def test_incompatible_venv_is_preserved(android):
     assert "incompatible Python" in result.stderr
     assert sentinel.read_text() == "existing data"
     assert "python:" not in log.read_text()
+
+
+def test_missing_openssl_header_stops_before_network_or_env_changes(android):
+    env, home, _, log = android
+    (Path(env["PREFIX"]) / "include/openssl/ssl.h").unlink()
+    result = run_installer(env, "--resume")
+    assert result.returncode != 0
+    assert "Missing native OpenSSL build input" in result.stderr
+    assert not log.exists()
+    assert not (home / ".local").exists()
+
+
+def test_missing_openssl_library_preserves_partial_venv(android):
+    env, home, _, log = android
+    _, sentinel = existing_environment(home)
+    (Path(env["PREFIX"]) / "lib/libcrypto.so").unlink()
+    result = run_installer(env, "--resume")
+    assert result.returncode != 0
+    assert "libcrypto.so" in result.stderr
+    assert sentinel.read_text() == "existing data"
+    assert not log.exists()

@@ -22,6 +22,8 @@ for tool in clang cargo make pkg-config curl; do
     command -v "$tool" >/dev/null 2>&1 || fail "Missing $tool. Install clang rust make pkg-config curl using the app package manager."
 done
 source_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Android's app-private OpenSSL prefix is not discovered reliably by openssl-sys.
+. "$source_dir/scripts/termux-native.sh" || fail 'Could not configure native OpenSSL build inputs.'
 # Resolve trust before creating an environment or starting nested pip/Cargo builds.
 . "$source_dir/scripts/termux-ca.sh" || fail 'Could not configure trusted CA certificates.'
 curl --fail --silent --show-error --connect-timeout 15 --max-time 30 \

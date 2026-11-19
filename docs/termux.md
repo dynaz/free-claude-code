@@ -135,3 +135,19 @@ network/proxy trust problem; use an appropriately trusted bundle via
 
 Fixing the CA error addresses the failure shown in that log. Further Android
 native compilation failures may still require separate changes.
+
+## Recover from openssl-sys not finding OpenSSL
+
+A later build can pass the CA check and fail in `openssl-sys` with an OpenSSL
+location error. For native Android, use the app's OpenSSL headers and libraries
+under `$PREFIX`, rather than Ubuntu's `/usr` paths. Install/reinstall `openssl`
+and ensure `pkg-config`, `clang`, `rust` and `libffi` are installed.
+
+The installer now sources `scripts/termux-native.sh` before any pip build. It
+checks the headers and shared libraries, exports `OPENSSL_DIR`,
+`OPENSSL_INCLUDE_DIR`, `OPENSSL_LIB_DIR`, `OPENSSL_NO_VENDOR` and the native
+Android target-prefixed equivalents, and prepends the app's pkg-config paths
+while retaining existing paths. Pip build isolation inherits these environment
+variables. Missing inputs fail before network requests or virtualenv changes.
+Retry with `--resume` after repairing the package. This fixes OpenSSL discovery;
+it does not establish that the complete Android build has passed.
