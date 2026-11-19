@@ -151,3 +151,15 @@ while retaining existing paths. Pip build isolation inherits these environment
 variables. Missing inputs fail before network requests or virtualenv changes.
 Retry with `--resume` after repairing the package. This fixes OpenSSL discovery;
 it does not establish that the complete Android build has passed.
+
+## ChatGPT model discovery reports HTTP 400
+
+A Termux build uses a local package version such as `0+terminow.752e0ce32abd`.
+The model-list endpoint was observed rejecting the derived
+`client_version=0.0.0+terminow.752e0ce32abd` with
+`{"detail":"Invalid client_version format"}`. FCC now sends only the numeric
+release triplet (`0.0.0` in this example) for that query parameter. Distribution
+metadata and the version/user-agent headers retain the actual build identity.
+Restart FCC after updating so the running provider reloads the change. This
+fixes the observed formatting error; successful account/model access still
+requires a live verification against the connected account.

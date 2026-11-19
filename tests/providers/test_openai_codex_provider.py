@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import patch
@@ -266,11 +267,13 @@ async def test_streamed_authentication_error_has_authentication_status(
     "package_version,client_version",
     [
         ("6.5.9", "6.5.9"),
-        ("6.5.9.dev0", "6.5.9-dev.0"),
-        ("6.5.9.dev3+gb89b44b2a", "6.5.9-dev.3+gb89b44b2a"),
-        ("6.5.9.dev3+gb89b44b2a.d20260930", "6.5.9-dev.3+gb89b44b2a.d20260930"),
-        ("6.5.9+d20260930", "6.5.9+d20260930"),
-        ("dev", "0.0.0-dev"),
+        ("6.5.9.dev0", "6.5.9"),
+        ("6.5.9.dev3+gb89b44b2a", "6.5.9"),
+        ("6.5.9.dev3+gb89b44b2a.d20260930", "6.5.9"),
+        ("6.5.9+d20260930", "6.5.9"),
+        ("dev", "0.0.0"),
+        ("0+terminow.752e0ce32abd", "0.0.0"),
+        ("6.5.9rc1+terminow.local", "6.5.9"),
     ],
 )
 async def test_model_discovery_formats_package_version_for_upstream(
@@ -281,7 +284,9 @@ async def test_model_discovery_formats_package_version_for_upstream(
 
     def handler(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
-        if request.url.params.get("client_version") != client_version:
+        if not re.fullmatch(
+            r"[0-9]+\.[0-9]+\.[0-9]+", request.url.params.get("client_version", "")
+        ):
             return httpx2.Response(
                 400, json={"detail": "Invalid client_version format"}
             )
@@ -302,6 +307,7 @@ async def test_model_discovery_formats_package_version_for_upstream(
 
     assert {info.model_id for info in infos} == {"gpt-visible"}
     assert len(requests) == 1
+    assert requests[0].url.params["client_version"] == client_version
     assert requests[0].headers["version"] == package_version
     assert requests[0].headers["user-agent"] == f"codex_cli_rs/{package_version}"
 
